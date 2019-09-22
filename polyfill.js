@@ -2,7 +2,7 @@
 
 (function (globalObject) {
 
-    if (1 || globalObject && !globalObject.Promise) {
+    if (globalObject && !globalObject.Promise) {
 
         var PromiseStates = {
             pending: 'pending',
@@ -391,6 +391,6 @@
             }
         }
 
-        globalObject.PPromise = Promise
+        globalObject.Promise = Promise
     }
 })(this || window);
