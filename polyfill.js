@@ -2,7 +2,7 @@
 
 (function (globalObject) {
 
-    if (globalObject && !globalObject.Promise) {
+    if (1 || globalObject && !globalObject.Promise) {
 
         var PromiseStates = {
             pending: 'pending',
@@ -22,14 +22,32 @@
             return Object.prototype.toString.call(arr) === '[object Array]';
         }
 
+        var queque = [];
+
+        var onPopArray = function (name) {
+            var item;
+
+            for (let i = 0, len = queque.length; i < len; i++) {
+                var shifted = queque.shift();
+
+                if (name === shifted.name || shifted.name === 'finally' || shifted.name === 'done') {
+                    item = shifted;
+                    i = len;
+                }
+            }
+
+            return item;
+        }
+
         function Promise(pendingRequest) {
 
             if (isFunction(pendingRequest)) {
 
+                var onPushArray = function (name, callback, resolve, reject) {
+                    queque.push({ name: name, callback: callback, resolve: resolve, reject: reject });
+                }
                 var status = PromiseStates.pending;
                 var resultData = null;
-                var resolveCallback = null;
-                var rejectCallback = null;
                 var promiseReturn = null;
                 var finallyReturn = null;
                 var doneReturn = null;
@@ -37,12 +55,14 @@
 
                 var onDone = function (doneCalback) {
                     if (isFunction(doneCalback)) {
+                        if (status === PromiseStates.pending) onPushArray('done', doneCalback);
 
                         return new Promise(function (res) {
                             doneReturn = doneCalback;
 
                             if (status !== PromiseStates.pending) {
                                 doneCalback(resultData);
+
                             }
                         });
                     }
@@ -51,22 +71,47 @@
                 var onFinally = function (finallyCalback) {
                     if (isFunction(finallyCalback)) {
 
-                        return new Promise(function (res) {
-                            finallyReturn = [res, finallyCalback];
+                        return new Promise(function (res, rej) {
+                            if (status === PromiseStates.pending) onPushArray('finally', finallyCalback, res, rej);
 
+                            finallyReturn = [res, finallyCalback, rej];
                             if (status !== PromiseStates.pending) {
 
                                 var finallyResult = finallyCalback();
+                                var throwRequest = status === PromiseStates.resolved ? res : rej;
 
                                 if (finallyResult instanceof Promise) {
                                     finallyResult.then(function (result) {
-                                        res(result);
+                                        throwRequest(result);
                                     });
                                 }
-                                else res(resultData);
+                                else throwRequest(resultData);
                             }
                         });
                     }
+                }
+
+                var onReturn = function (callback, onReturning, newStatus) {
+                    return new Promise(function (res, rej) {
+
+                        onReturning(res);
+                        if (status === PromiseStates.pending) onPushArray(newStatus, callback, res);
+
+                        if (status === newStatus) {
+                            var callbackData = callback(resultData);
+
+                            if (callbackData instanceof Promise) {
+                                callbackData.then(function (result) {
+                                    res(callback(result));
+                                });
+                            }
+                            else res(callback(resultData));
+                        }
+                        else {
+                            if (status === PromiseStates.resolved) res(resultData);
+                            if (status === PromiseStates.rejected) rej(resultData);
+                        }
+                    });
                 }
 
                 var onCatch = function (errorCallback) {
@@ -74,23 +119,11 @@
 
                         if (isFunction(errorCallback)) {
 
-                            rejectCallback = errorCallback;
-
-                            return new Promise(function (res) {
-
+                            var onReturning = function (res) {
                                 promiseRejReturn = [res, errorCallback];
+                            }
 
-                                if (status === PromiseStates.rejected) {
-
-                                    if (resultData instanceof Promise) {
-                                        resultData.then(function (result) {
-                                            res(rejectCallback(result));
-                                        })
-                                    }
-                                    else res(rejectCallback(resultData));
-                                }
-                            });
-
+                            return onReturn(errorCallback, onReturning, PromiseStates.rejected);
                         }
                     }();
                 };
@@ -100,97 +133,97 @@
 
                     return this.onSuccess = function () {
                         if (isFunction(successCallback)) {
-                            resolveCallback = successCallback;
 
-                            return new Promise(function (res, rej) {
-
+                            var onReturning = function (res) {
                                 promiseReturn = [res, successCallback];
+                            }
 
-                                if (status === PromiseStates.resolved) {
-
-                                    if (resultData instanceof Promise) {
-                                        resultData.then(function (result) {
-                                            res(resolveCallback(result));
-                                        })
-                                    }
-                                    else res(resolveCallback(resultData));
-                                }
-                            });
+                            return onReturn(successCallback, onReturning, PromiseStates.resolved);
                         }
                     }();
                 };
 
-                var onResolve = function (val) {
+                var hocResolveReject = function (newStatus, value, onResult) {
                     if (status === PromiseStates.pending) {
-                        resultData = val;
-                        status = PromiseStates.resolved;
+                        resultData = value;
+                        status = newStatus;
 
-                        if (resolveCallback) {
-                            var thenResult = resolveCallback(resultData);
+                        var nextRequest = queque.shift();
 
-                            if (promiseReturn) {
-                                //  var thenResult = promiseReturn[1](resultData);
-
-                                if (thenResult instanceof Promise) {
-                                    thenResult.then(function (res) {
-                                        promiseReturn[0](res);
-                                    })
-                                } else {
-                                    promiseReturn[0](thenResult);
-                                }
-                            }
-                        }
-                        else if (finallyReturn) {
+                        if (finallyReturn) {
                             var finallyRes = finallyReturn[1]();
+                            var throwRequest = newStatus === PromiseStates.resolved ? finallyReturn[0] : finallyReturn[2];
 
                             if (finallyRes instanceof Promise) {
                                 finallyRes.then(function (result) {
-                                    finallyReturn[0](result);
+                                    throwRequest(result);
                                 });
                             }
-                            else finallyReturn[0](resultData);
+                            else throwRequest(resultData);
                         }
-
-                        else if (doneReturn){
+                        else if (doneReturn) {
                             doneReturn(resultData);
                         }
+                        else if (onResult) {
+                            var thenResult = onResult[1](resultData);
+
+                            if (thenResult instanceof Promise) {
+                                thenResult.then(function (res) {
+                                    onResult[0](res);
+                                })
+                            } else {
+                                onResult[0](thenResult);
+                            }
+                        }
+                        else if (nextRequest) {
+                            if (nextRequest.name === newStatus || nextRequest.name === 'done' || nextRequest.name === 'finally') {
+                                var isFinally = nextRequest.name === 'finally';
+                                var isDone = nextRequest.name === 'done';
+                                var thenResult = nextRequest.callback(isFinally ? null : resultData);
+                                var trowAction;
+                                if (!isDone) {
+                                    trowAction = isFinally && newStatus === PromiseStates.rejected ? nextRequest.reject : nextRequest.resolve;
+                                }
+
+                                if (thenResult instanceof Promise) {
+                                    thenResult.then(function (res) {
+                                        trowAction && trowAction(res);
+                                    })
+                                } else {
+                                    trowAction && trowAction(thenResult);
+                                }
+                            }
+                            else {
+                                nextRequest = onPopArray(newStatus);
+                                if (nextRequest) {
+                                    var isFinally = nextRequest.name === 'finally';
+                                    var throwRequest = isFinally && newStatus === PromiseStates.rejected ?
+                                        nextRequest.reject : nextRequest.resolve;
+
+                                    if (nextRequest) {
+                                        var thenResult = nextRequest.callback(isFinally ? null : resultData);
+
+                                        if (thenResult instanceof Promise) {
+                                            thenResult.then(function (res) {
+                                                throwRequest && throwRequest(res);
+                                            })
+                                        } else {
+                                            throwRequest && throwRequest(isFinally ? resultData : thenResult);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
 
+                var onResolve = function (val) {
+                    hocResolveReject(PromiseStates.resolved, val, promiseReturn);
+                }
+
                 var onReject = function (val) {
-                    if (status === PromiseStates.pending) {
-                        resultData = val;
-                        status = PromiseStates.rejected;
-
-                        if (rejectCallback) {
-
-                            var thenResult = rejectCallback(resultData);
-
-                            if (promiseRejReturn) {
-
-                                if (thenResult instanceof Promise) {
-                                    thenResult.then(function (res) {
-                                        promiseRejReturn[0](res);
-                                    })
-                                } else {
-                                    promiseRejReturn[0](thenResult);
-                                }
-                            }
-                        }
-                        else if (finallyReturn) {
-                            var finallyRes = finallyReturn[1]();
-
-                            if (finallyRes instanceof Promise) {
-                                finallyRes.then(function (result) {
-                                    finallyReturn[0](result);
-                                });
-                            }
-                            else refinallyReturn[0](resultData);
-                        }
-                        else if (doneReturn){
-                            doneReturn(resultData);
-                        }
-                    }
+                    hocResolveReject(PromiseStates.rejected, val, promiseRejReturn);
                 }
 
                 this.done = onDone;
@@ -249,12 +282,13 @@
                     })
                 }
 
+                var stopLoop = function () {
+                    i = len;
+                }
+
                 for (var i = 0; i < len; i++) {
                     var promiseItem = promArray[i];
 
-                    var stopLoop = function () {
-                        i = len;
-                    }
 
                     if (isObject(promiseItem) && isFunction(promiseItem.then)) {
                         onThenItem(promiseItem, stopLoop);
@@ -357,6 +391,6 @@
             }
         }
 
-        globalObject.Promise = Promise
+        globalObject.PPromise = Promise
     }
 })(this || window);

@@ -1,28 +1,54 @@
-Полифил для Promise.
+#Полифил для Promise.
 
-Проверяется наличие нативных Promise и реализуестся полифил внутри IIFE.
-Выполняются асинхронные операции через resolve или reject.
+####Проверяется наличие нативности Promise и реализуестся полифил внутри IIFE.
+####Выполняются асинхронные операции через resolve или reject.
 
-Бонус. Работа методов.
+###Обработка цепочки
+```
+  var promise = new Promise(function (resolve, rej) {
+        setTimeout(function () {
+            rej(42)                                 //имитация ошибки
+        }, 1000)
+    });
 
-Promise.resolve
+    promise
+        .then(function (data) {
+            console.log(data, ' result 1')          //будет проигнорировано
+        })
+        .finally(function () {
+            console.log('finally')                  //выведет finally
+        })
+        .catch(function (data) {
+            console.log(data, ' error')             //выведет error 42
+            return data;                            //передача результата следующему звену
+        })
+        .then(function (data) {
+            console.log(data, ' result 2')          //выведет 42 result 2
+        }).then(function (data) {
+            console.log(' result 3')                //выведет result 3
+        })
+```
 
+##Бонус. Работа методов.
+
+###Promise.resolve
+```
 Promise.resolve(5).then(function(result){
     console.log(result, 'resolved')     //выведет 5 resolved
 }, function(err){
     console.log(err, 'error')           //будет проигнорировано
 });
-
-Promise.reject
-
+```
+###Promise.reject
+```
 Promise.reject(5).then(function(result){
     console.log(result, 'resolved')     //будет проигнорировано 
 }, function(err){
     console.log(err, 'error')           //выведет 5 error
 });
-
-Promise.all
-
+```
+###Promise.all
+```
 var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
             resolve(42)
@@ -39,8 +65,8 @@ Promise.all([promise, promise2]).then(function (result) {
 }, function (err) {
     console.log(err, 'error')               //будет проигнорировано
 })
-
-
+```
+```
 var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
             rej(42)                         //имитация ошибки
@@ -57,9 +83,9 @@ Promise.all([promise, promise2]).then(function (result) {
 }, function (err) {
     console.log(err, 'error')               //выведет 42 error
 })
-
-Promise.race
-
+```
+###Promise.race
+```
 var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
             resolve(42)                         //имитация ошибки
@@ -76,11 +102,11 @@ Promise.race([promise, promise2]).then(function (result) {
 }, function (err) {
     console.log(err, 'error')               //будет проигнорировано
 })
+```
+##Супер Бонус
 
-Супер Бонус
-
-finally
-
+###finally
+```
  var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
             resolve(42)
@@ -107,9 +133,9 @@ finally
          .then(function (err) {
              console.log(err, ' result 2')       //выведет 73 result 2
          })
-
-done
-
+```
+###done
+```
  var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
             resolve(42)
@@ -139,8 +165,8 @@ done
          .then(function (err) {
              console.log(err, ' result 2')      //будет проигнорировано
          })
-
-
+```
+```
 var promise = new Promise(function (resolve, rej) {
     setTimeout(function () {
         rej(42)
@@ -154,26 +180,4 @@ promise
         .then(function (err) {
             console.log(err, ' result 2')      //будет проигнорировано
         })
-
-Потенциальные ошибки.
-
-Цепочка на успех обрабатывает и передает значение следующему звену, но catch не ловит ошибки.
-Ошибки может обработать метод then error callback, но следующее звену не запускается.
-Буду рада, если поможете разобраться.
-
-Пример.
-
-var promise = new Promise(function (resolve, rej) {
-        rej(42);
-    })
-
- promise
-        .then(function (data) {
-            console.log(data, ' result 2')      //будет проигнорировано
-        },
-            function (data) {
-                console.log(data, ' error')     //выведет 42 error и обработает ошибку
-            }
-        ).then(function (data) {
-            console.log(data, ' result 3')      //будет проигнорировано (неверное поведение!)
-        })
+```
