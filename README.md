@@ -1,9 +1,9 @@
-#Полифил для Promise.
+# Полифил для Promise.
 
-####Проверяется наличие нативности Promise и реализуестся полифил внутри IIFE.
-####Выполняются асинхронные операции через resolve или reject.
+#### Проверяется наличие нативности Promise и реализуестся полифил внутри IIFE.
+#### Выполняются асинхронные операции через resolve или reject.
 
-###Обработка цепочки
+### Обработка цепочки
 ```
   var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
@@ -29,9 +29,9 @@
         })
 ```
 
-##Бонус. Работа методов.
+## Бонус. Работа методов.
 
-###Promise.resolve
+### Promise.resolve
 ```
 Promise.resolve(5).then(function(result){
     console.log(result, 'resolved')     //выведет 5 resolved
@@ -39,7 +39,7 @@ Promise.resolve(5).then(function(result){
     console.log(err, 'error')           //будет проигнорировано
 });
 ```
-###Promise.reject
+### Promise.reject
 ```
 Promise.reject(5).then(function(result){
     console.log(result, 'resolved')     //будет проигнорировано 
@@ -47,7 +47,7 @@ Promise.reject(5).then(function(result){
     console.log(err, 'error')           //выведет 5 error
 });
 ```
-###Promise.all
+### Promise.all
 ```
 var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
@@ -84,7 +84,7 @@ Promise.all([promise, promise2]).then(function (result) {
     console.log(err, 'error')               //выведет 42 error
 })
 ```
-###Promise.race
+### Promise.race
 ```
 var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
@@ -103,9 +103,9 @@ Promise.race([promise, promise2]).then(function (result) {
     console.log(err, 'error')               //будет проигнорировано
 })
 ```
-##Супер Бонус
+## Супер Бонус
 
-###finally
+### finally
 ```
  var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
@@ -134,7 +134,7 @@ Promise.race([promise, promise2]).then(function (result) {
              console.log(err, ' result 2')       //выведет 73 result 2
          })
 ```
-###done
+### done
 ```
  var promise = new Promise(function (resolve, rej) {
         setTimeout(function () {
